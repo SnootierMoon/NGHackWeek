@@ -1,3 +1,5 @@
+#TODO: find max page of item
+#TODO: return an array of Product()'s, with the name and spec field filled
 import requests
 from bs4 import BeautifulSoup
 
