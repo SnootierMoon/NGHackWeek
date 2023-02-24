@@ -12,30 +12,36 @@ if __name__ == "__main__":
     soup = BeautifulSoup(response.content, 'html.parser')
 
     urls = []
-    x = 1
 
     search_results = soup.find_all('div', {'class': 'search-results'})[0]
 
-    p_tag = soup.find_all('a', {'class': 'page-link'})
-    max_page = int(p_tag[-3].get_text())
+    #p_tag = soup.find_all('a', {'class': 'page-link'})
+    search_text = "products found"
+    result = soup.find(string=lambda text: search_text in str(text).lower())
+    tag = result.parent
+    max_results = int(tag.get_text().split()[0])
+    page_num = 2
 
-    for i in range(2,8):
+    while True:
         for a in search_results.find_all('a', href=True):
             if "/products/" in a['href']:
                 product_url = a['href']
-                urls.append(product_url)
-        if i < 7:
-            url = "https://satsearch.co/products/search/{}?page={}".format(product, i) 
+                urls.append("https://satsearch.co" + product_url)
+        if len(urls) < max_results:
+            url = "https://satsearch.co/products/search/{}?page={}".format(product, page_num) 
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             search_results = soup.find_all('div', {'class': 'search-results'})[0]
-
+            page_num += 1
+        else:
+            break
+    print(urls)
     print(len(urls))
 
 
 
 
-    print(urls)
+    #print(urls)
 
 
     '''vendors = []
