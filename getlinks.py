@@ -1,9 +1,10 @@
 #TODO: find max page of item
 #TODO: return an array of Product()'s, with the name and spec field filled
 import requests
+from getspecs import add_specs, Product
 from bs4 import BeautifulSoup
 
-if __name__ == "__main__":
+def main():
     product = input("Product Name:")
 
     url = "https://satsearch.co/products/search/{}".format(product)
@@ -11,7 +12,7 @@ if __name__ == "__main__":
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    urls = []
+    products = []
 
     search_results = soup.find_all('div', {'class': 'search-results'})[0]
 
@@ -25,9 +26,9 @@ if __name__ == "__main__":
     while True:
         for a in search_results.find_all('a', href=True):
             if "/products/" in a['href']:
-                product_url = a['href']
-                urls.append("https://satsearch.co" + product_url)
-        if len(urls) < max_results:
+                product_url = "https://satsearch.co" + a['href']
+                products.append(Product(a.get_text(), product_url, add_specs(product_url)))
+        if len(products) < max_results:
             url = "https://satsearch.co/products/search/{}?page={}".format(product, page_num) 
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -35,8 +36,10 @@ if __name__ == "__main__":
             page_num += 1
         else:
             break
-    print(urls)
-    print(len(urls))
+    for p in products: 
+        print(p.name + ": " + p.url)
+        for spec in p.specs:
+            print("\t"+spec+": "+p.specs[spec])
 
 
 
@@ -55,3 +58,5 @@ if __name__ == "__main__":
     print("Vendors for {} in {}: ".format(product, area))
     for vendor in vendors:
         print(vendor)'''
+if __name__ == '__main__':
+    main()
