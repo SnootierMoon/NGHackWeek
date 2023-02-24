@@ -1,3 +1,4 @@
 import getspecs
 
-test_cases = [getspecs.Product()]
+if __name__ == "__main__":
+    test_cases = [getspecs.Product()]
