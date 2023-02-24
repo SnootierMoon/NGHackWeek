@@ -10,6 +10,7 @@ if __name__ == "__main__":
     soup = BeautifulSoup(response.content, 'html.parser')
 
     urls = []
+    x = 1
 
     search_results = soup.find_all('div', {'class': 'search-results'})[0]
 
