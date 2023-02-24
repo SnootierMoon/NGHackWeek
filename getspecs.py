@@ -2,7 +2,6 @@
 #TODO: find name of item (easier to do in getlinks) 
 import requests
 from bs4 import BeautifulSoup
-import asyncio
 
 class Product:
     def __init__(self, name, url, specs):
