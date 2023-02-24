@@ -13,7 +13,7 @@ class Product:
 def add_urls(urls):
     products = []
     for url in urls:
-        response = requests.get("https://satsearch.co"+url)
+        response = requests.get(url)
         soup = BeautifulSoup(response.content, 'html.parser')
 
         divs = soup.find('div', {'class': 'specs-table'})
