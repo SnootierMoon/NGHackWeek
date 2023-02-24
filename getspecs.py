@@ -17,7 +17,6 @@ for url in urls:
     soup = BeautifulSoup(response.content, 'html.parser')
 
     divs = soup.find('div', {'class': 'specs-table'}).find_all('div', string=True)
-
     print(divs)
 
 
