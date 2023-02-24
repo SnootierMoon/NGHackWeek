@@ -27,9 +27,7 @@ def get_products(urls):
     return products
     
 def main():
-    urls = ["https://satsearch.co/products/tensortech-cmg-40m-control-moment-gyroscope", 
-            "https://satsearch.co/products/tensortech-cmg-20m-control-moment-gyroscope",
-            "https://satsearch.co/products/berlin-space-tech-rwa05"]
+    urls = []
     
     products = get_products(urls)
 
