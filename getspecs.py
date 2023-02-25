@@ -2,12 +2,16 @@
 #TODO: find name of item (easier to do in getlinks) 
 import requests
 from bs4 import BeautifulSoup
+import re
+
+def fix_spec_name(spec_name):
+    return re.sub("[^a-zA-Z_0-9]+", "_", spec_name).strip('_')
 
 class Product:
     def __init__(self, name, url, specs):
         self.name = name
         self.url = url
-        self.specs = dict([(fix_spec_name(x),y) for x,y in product_list[0].specs.items()])
+        self.specs = dict([(fix_spec_name(x), y) for x,y in specs.items()])
 
 def add_specs(url):
     response = requests.get(url)
