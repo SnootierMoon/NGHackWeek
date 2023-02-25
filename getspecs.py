@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import re
 
 def fix_spec_name(spec_name):
-    return re.sub("[^a-zA-Z_0-9]+", "_", spec_name).strip('_')
+    return re.sub("[^a-zA-Z_0-9]+", "_", spec_name).strip('_').lower()
 
 class Product:
     def __init__(self, name, url, specs):
