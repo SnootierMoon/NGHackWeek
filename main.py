@@ -134,7 +134,7 @@ def interactive(product_list):
         stmt = input("SQLite: ")
         try:
             for x in db.execute(stmt).fetchall():
-                print(x)
+                print("  " + str(x))
         except sqlite3.OperationalError as err:
             print("SQL error:", err)
 
