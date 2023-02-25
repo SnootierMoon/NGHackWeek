@@ -7,7 +7,7 @@ class Product:
     def __init__(self, name, url, specs):
         self.name = name
         self.url = url
-        self.specs = specs
+        self.specs = dict([(fix_spec_name(x),y) for x,y in product_list[0].specs.items()])
 
 def add_specs(url):
     response = requests.get(url)
@@ -23,15 +23,3 @@ def add_specs(url):
             specs[divs[i].get_text()] = divs[i+1].get_text() #fix
         
     return specs
-        
-        
-        
-
-
-
-
-
-
-
-
-    
