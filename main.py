@@ -16,9 +16,10 @@ class Product:
     def fix_spec_name(name):
         return re.sub("[^a-zA-Z_0-9]+", "_", name).strip("_").lower()
 
-# get product urls from the data of a search page async def search_page_product_urls(soup):
+# get product urls from the html of a search page
 async def search_page_product_urls(soup):
     search_results = soup.find_all("div", {"class": "search-results"})[0]
+
     return [ (item.get_text(), base_url + item["href"])
             for item in search_results.find_all("a", href=True)
             if "/products/" in item["href"] ]
@@ -53,17 +54,15 @@ async def search_product_urls(session, product_name):
 
         print(f"Found {page_count} pages, with {product_count} results")
 
-        product_search_tasks = []
+        product_search_tasks = [asyncio.ensure_future(search_page_product_urls(soup))]
         for page_num in range(2, page_count + 1):
             fut = search_nth_page_product_urls(session, product_name, page_num)
             product_search_tasks.append(asyncio.ensure_future(fut))
 
-        product_urls = await search_page_product_urls(soup)
-
         print()
         print("Retrieving product urls")
-        for page_product_urls in await tqdm_asyncio.gather(*product_search_tasks):
-            product_urls.extend(page_product_urls)
+        product_urls = [url for urls in await tqdm_asyncio.gather(*product_search_tasks) 
+                        for url in urls]
 
         print("Retrieved {count} product urls".format(count=len(product_urls)))
 
@@ -96,12 +95,9 @@ async def get_products(session, product_name):
         fut = get_product(session, name, url)
         product_spec_tasks.append(asyncio.ensure_future(fut))
 
-    products = []
-
     print()
     print("Retrieving product specs")
-    for product in await tqdm_asyncio.gather(*product_spec_tasks):
-        products.append(product)
+    products = list(await tqdm_asyncio.gather(*product_spec_tasks))
 
     return products
 
