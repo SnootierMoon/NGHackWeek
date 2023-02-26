@@ -1,8 +1,9 @@
-import aiohttp, asyncio
 from bs4 import BeautifulSoup
+from tqdm.asyncio import tqdm_asyncio
+import aiohttp, asyncio
+import functools
 import re
 import sqlite3
-import functools
 
 base_url = "https://satsearch.co"
 
@@ -35,6 +36,8 @@ async def search_nth_page_product_urls(session, product_name, page_num):
 async def search_product_urls(session, product_name):
     search_url = f"{base_url}/products/search/{product_name}?page=1"
 
+    print("Getting main search page")
+
     async with session.get(search_url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
 
@@ -48,7 +51,7 @@ async def search_product_urls(session, product_name):
             string=lambda text: "products found" in str(text).lower()
             ).parent.get_text()).group(0))
 
-        print(f"found {page_count} pages, with {product_count} results")
+        print(f"Found {page_count} pages, with {product_count} results")
 
         product_search_tasks = []
         for page_num in range(2, page_count + 1):
@@ -57,10 +60,12 @@ async def search_product_urls(session, product_name):
 
         product_urls = await search_page_product_urls(soup)
 
-        for page_product_urls in await asyncio.gather(*product_search_tasks):
+        print()
+        print("Retrieving product urls")
+        for page_product_urls in await tqdm_asyncio.gather(*product_search_tasks):
             product_urls.extend(page_product_urls)
 
-        print("{count} product urls retrieved".format(count=len(product_urls)))
+        print("Retrieved {count} product urls".format(count=len(product_urls)))
 
         return product_urls
 
@@ -93,7 +98,9 @@ async def get_products(session, product_name):
 
     products = []
 
-    for product in await asyncio.gather(*product_spec_tasks):
+    print()
+    print("Retrieving product specs")
+    for product in await tqdm_asyncio.gather(*product_spec_tasks):
         products.append(product)
 
     return products
@@ -125,13 +132,20 @@ def interactive(product_list):
         )
         db.execute(insert_stmt, vals)
 
-    print("Fetched specs: ")
+    print()
+    print("Retrieved specs: ")
     for x in spec_names:
-        print("  " + x)
+        print(" - " + x)
 
+    print()
     print("Use SQL commands in the table:", table_name);
     while True:
-        stmt = input("SQLite: ")
+        print()
+        try:
+            stmt = input("SQLite: ")
+        except (KeyboardInterrupt, EOFError):
+            print()
+            break
         try:
             for x in db.execute(stmt).fetchall():
                 print("  " + str(x))

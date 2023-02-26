@@ -7,11 +7,11 @@ a database so that desired properties can be queried quickly.
 
 ## Usage:
 
-This project depends on `aiohttp` for asynchronous HTTP and `BeautifulSoup` for
-webscraping.
+This project depends on `aiohttp` for asynchronous HTTP, `BeautifulSoup` for
+webscraping, and `tqdm` for some cool progress bars.
 
 You can set up a development environment with a `venv` and then install the
-required dependencies from `requirements.txt`:
+required dependencies from `requirements.txt` asa follows:
 
 ```sh
 $ python3 -m venv venv
@@ -19,7 +19,7 @@ $ source venv/bin/activate
 $ pip3 install -r requirements.txt
 ```
 
-Run the program:
+Then you will be able to run the program:
 
 ```sh
 $ python3 main.py
