@@ -1,42 +1,39 @@
 from bs4 import BeautifulSoup, NavigableString
-from tqdm.asyncio import tqdm_asyncio
-import aiohttp, asyncio
-import functools
-import re
-import sqlite3
+from tqdm.asyncio import tqdm_asyncio as tqdm
+import aiohttp, asyncio, functools, re, sqlite3
 
-base_url = "https://satsearch.co"
+BASE_URL = "https://satsearch.co"
+TABLE_NAME = "product_specs"
 
 class Product:
-    def __init__(self, name, url, specs):
+    def __init__(self, name, url):
         self.name = name
         self.url = url
-        self.specs = specs
+        self.specs = {}
+
+    def add_spec(self, key, val):
+        self.specs[key] = val
 
     def fix_spec_name(spec):
         raw_name = ''.join([x for x in spec if isinstance(x, NavigableString)])
         return re.sub("[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
 
-# get product urls from the html of a search page
 async def search_page_product_urls(soup):
     search_results = soup.find_all("div", {"class": "search-results"})[0]
 
-    return [ (item.get_text(), base_url + item["href"])
+    return [ (item.get_text(), BASE_URL + item["href"])
             for item in search_results.find_all("a", href=True)
             if "/products/" in item["href"] ]
 
-# search the nth page for product urls
 async def search_nth_page_product_urls(session, product_name, page_num):
-    search_url = f"{base_url}/products/search/{product_name}?page={page_num}"
+    search_url = f"{BASE_URL}/products/search/{product_name}?page={page_num}"
 
     async with session.get(search_url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
         return await search_page_product_urls(soup)
 
-# given a product name, asynchronously search on all search pages for the
-# product online and get urls for all products associated with that name
 async def search_product_urls(session, product_name):
-    search_url = f"{base_url}/products/search/{product_name}?page=1"
+    search_url = f"{BASE_URL}/products/search/{product_name}?page=1"
 
     print("Getting main search page")
 
@@ -62,16 +59,15 @@ async def search_product_urls(session, product_name):
 
         print()
         print("Retrieving product urls")
-        product_urls = [url for urls in await tqdm_asyncio.gather(*product_search_tasks) 
+        product_urls = [url for urls in await tqdm.gather(*product_search_tasks) 
                         for url in urls]
 
         print("Retrieved {count} product urls".format(count=len(product_urls)))
 
         return product_urls
 
-# get a single product's data from its url
-async def get_product(session, name, url):
-    async with session.get(url) as response:
+async def get_product(session, product):
+    async with session.get(product.url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
         specs_table = soup.find("div", {"class": "specs-table"})
 
@@ -82,9 +78,8 @@ async def get_product(session, name, url):
                 key = Product.fix_spec_name(elements[i])
                 if key == "lifetime1": print(url)
                 value = elements[i + 1].get_text()
-                specs[key] = value
-
-        return Product(name, url, specs)
+                product.add_spec(key, value)
+        return product
 
 # given a product name, asynchronously get specs for all products associated
 # with that name
@@ -94,12 +89,13 @@ async def get_products(session, product_name):
     product_spec_tasks = []
 
     for name, url in product_urls:
-        fut = get_product(session, name, url)
+        product = Product(name, url)
+        fut = get_product(session, product)
         product_spec_tasks.append(asyncio.ensure_future(fut))
 
     print()
     print("Retrieving product specs")
-    products = list(await tqdm_asyncio.gather(*product_spec_tasks))
+    products = list(await tqdm.gather(*product_spec_tasks))
 
     return products
 
@@ -108,35 +104,36 @@ def get_spec_names(products):
             lambda a,b: a.union(b), 
             [set(prod.specs.keys()) for prod in products])
 
-table_name = "product_specs"
-def interactive(product_list):
-    spec_names = list(get_spec_names(product_list))
-    db = sqlite3.connect(":memory:")
-
-
+def create_table(db, products, spec_names):
     create_stmt = "CREATE TABLE {}({});".format(
-        table_name,
+        TABLE_NAME,
         ",".join(["Name"] + spec_names)
     )
     db.execute(create_stmt)
 
-    for product in product_list:
+    for product in products:
         keys = ["Name"] + list(product.specs.keys())
         vals = [product.name] + list(product.specs.values())
         insert_stmt = "INSERT INTO {} ({}) VALUES({});".format(
-                table_name,
+                TABLE_NAME,
                 ",".join(keys),
                 ",".join(["?" for x in vals])
         )
         db.execute(insert_stmt, vals)
+
+def interactive(products):
+    spec_names = list(get_spec_names(products))
 
     print()
     print("Retrieved specs: ")
     for x in spec_names:
         print(" - " + x)
 
+    db = sqlite3.connect(":memory:")
+    create_table(db, products, spec_names)
+
     print()
-    print("Use SQL commands in the table:", table_name);
+    print("Use SQL commands in the table:", TABLE_NAME);
     while True:
         print()
         try:
