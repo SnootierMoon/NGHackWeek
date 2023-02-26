@@ -27,7 +27,7 @@ $ python3 main.py
 
 The program will first prompt you for the product you are searching for. Type
 in a product (e.g. `reaction wheel`), and then press enter. The program will
-then search the web for results.
+search the web for results.
 
 ```
 Product Name: reaction wheel
@@ -77,4 +77,3 @@ SQLite: SELECT Name,lifetime FROM product_specs WHERE lifetime IS NOT NULL;
   ('MicroWheel 1000', '> 7 yr')
 ...
 ```
-
