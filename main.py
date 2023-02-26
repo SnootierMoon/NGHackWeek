@@ -5,26 +5,42 @@ import aiohttp, asyncio, functools, re, sqlite3
 BASE_URL = "https://satsearch.co"
 TABLE_NAME = "product_specs"
 
+FLOAT_REGEXP = r"[-+]?[0-9]+(\.[0-9])?([eE][-+]?[0-9]+)?"
+
+# stores information about a product
 class Product:
     def __init__(self, name, url):
         self.name = name
         self.url = url
         self.specs = {}
+        self.int_specs = {}
 
     def add_spec(self, key, val):
-        self.specs[key] = val
+        fix_key = Product.fix_spec_name(key)
+        self.specs[fix_key] = val
+        match = re.search(FLOAT_REGEXP, val)
+        if match:
+            self.int_specs["Num_" + fix_key] = float(match.group(0))
 
+    def all_specs(self):
+        return dict(self.specs, **self.int_specs)
+
+    # make the name work as a SQL field
     def fix_spec_name(spec):
         raw_name = ''.join([x for x in spec if isinstance(x, NavigableString)])
-        return re.sub("[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
+        return re.sub(r"[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
 
+# search through a search page for product urls
 async def search_page_product_urls(soup):
+    # get search results on search page
     search_results = soup.find_all("div", {"class": "search-results"})[0]
 
+    # find url links
     return [ (item.get_text(), BASE_URL + item["href"])
             for item in search_results.find_all("a", href=True)
             if "/products/" in item["href"] ]
 
+# fetch the product urls from the nth search page
 async def search_nth_page_product_urls(session, product_name, page_num):
     search_url = f"{BASE_URL}/products/search/{product_name}?page={page_num}"
 
@@ -40,13 +56,17 @@ async def search_product_urls(session, product_name):
     async with session.get(search_url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
 
-        last_page_href = next(filter(
-            lambda item: "Last" in item,
-            soup.find_all("a", {"class": "page-link"})
-            ))["href"]
+        page_links = soup.find_all("a", {"class": "page-link"})
+        if page_links:
+            last_page_href = next(filter(
+                lambda item: "Last" in item,
+                soup.find_all("a", {"class": "page-link"})
+                ))["href"]
+            page_count = int(re.findall(r"\d+", last_page_href)[-1])
+        else:
+            page_count = 1
 
-        page_count = int(re.findall("\d+", last_page_href)[-1])
-        product_count = int(re.search("\d+", soup.find(
+        product_count = int(re.search(r"\d+", soup.find(
             string=lambda text: "products found" in str(text).lower()
             ).parent.get_text()).group(0))
 
@@ -75,10 +95,7 @@ async def get_product(session, product):
         if specs_table:
             elements = specs_table.find_all("div", {"class": "border-bottom"})
             for i in range(0, len(elements), 2):
-                key = Product.fix_spec_name(elements[i])
-                if key == "lifetime1": print(url)
-                value = elements[i + 1].get_text()
-                product.add_spec(key, value)
+                product.add_spec(elements[i], elements[i+1].get_text())
         return product
 
 # given a product name, asynchronously get specs for all products associated
@@ -100,11 +117,12 @@ async def get_products(session, product_name):
     return products
 
 def get_spec_names(products):
-    return functools.reduce(
+    return 
+def create_table(db, products):
+    spec_names = list(functools.reduce(
             lambda a,b: a.union(b), 
-            [set(prod.specs.keys()) for prod in products])
+            [set(prod.all_specs().keys()) for prod in products]))
 
-def create_table(db, products, spec_names):
     create_stmt = "CREATE TABLE {}({});".format(
         TABLE_NAME,
         ",".join(["Name"] + spec_names)
@@ -112,8 +130,9 @@ def create_table(db, products, spec_names):
     db.execute(create_stmt)
 
     for product in products:
-        keys = ["Name"] + list(product.specs.keys())
-        vals = [product.name] + list(product.specs.values())
+        all_specs = product.all_specs()
+        keys = ["Name"] + list(all_specs.keys())
+        vals = [product.name] + list(all_specs.values())
         insert_stmt = "INSERT INTO {} ({}) VALUES({});".format(
                 TABLE_NAME,
                 ",".join(keys),
@@ -122,7 +141,9 @@ def create_table(db, products, spec_names):
         db.execute(insert_stmt, vals)
 
 def interactive(products):
-    spec_names = list(get_spec_names(products))
+    spec_names = functools.reduce(
+            lambda a,b: a.union(b), 
+            [set(prod.specs.keys()) for prod in products])
 
     print()
     print("Retrieved specs: ")
@@ -130,7 +151,7 @@ def interactive(products):
         print(" - " + x)
 
     db = sqlite3.connect(":memory:")
-    create_table(db, products, spec_names)
+    create_table(db, products)
 
     print()
     print("Use SQL commands in the table:", TABLE_NAME);
