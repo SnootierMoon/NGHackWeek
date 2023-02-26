@@ -26,16 +26,19 @@ class Product:
         return dict(self.specs, **self.int_specs)
 
     # make the name work as a SQL field
-    def fix_spec_name(spec):
-        raw_name = ''.join([x for x in spec if isinstance(x, NavigableString)])
+    def fix_spec_name(spec_tag):
+        # get the string parts of the element to filter out unwanted formats,
+        # such as superscripts
+        raw_name = "".join([x for x in spec_tag if isinstance(x, NavigableString)])
+        # remove non-alphanumeric characters, replace with underscores
         return re.sub(r"[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
 
 # search through a search page for product urls
 async def search_page_product_urls(soup):
     # get search results on search page
-    search_results = soup.find_all("div", {"class": "search-results"})[0]
+    search_results = soup.find("div", {"class": "search-results"})
 
-    # find url links
+    # filter url links
     return [ (item.get_text(), BASE_URL + item["href"])
             for item in search_results.find_all("a", href=True)
             if "/products/" in item["href"] ]
@@ -44,7 +47,9 @@ async def search_page_product_urls(soup):
 async def search_nth_page_product_urls(session, product_name, page_num):
     search_url = f"{BASE_URL}/products/search/{product_name}?page={page_num}"
 
+    # get the search page
     async with session.get(search_url) as response:
+        # get the product urls from the page
         soup = BeautifulSoup(await response.text(), "html.parser")
         return await search_page_product_urls(soup)
 
@@ -53,25 +58,28 @@ async def search_product_urls(session, product_name):
 
     print("Getting main search page")
 
+    # get the page 1 search page
     async with session.get(search_url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
 
         page_links = soup.find_all("a", {"class": "page-link"})
         if page_links:
-            last_page_href = next(filter(
-                lambda item: "Last" in item,
-                soup.find_all("a", {"class": "page-link"})
-                ))["href"]
+            # find the last page number
+            last_page_href = next(filter(lambda item: "Last" in item, page_links))["href"]
             page_count = int(re.findall(r"\d+", last_page_href)[-1])
         else:
+            # if page-links doesn't exist, there is no pagination because there
+            # is only one page
             page_count = 1
 
-        product_count = int(re.search(r"\d+", soup.find(
-            string=lambda text: "products found" in str(text).lower()
-            ).parent.get_text()).group(0))
+        # get total number of products from the page
+        product_count_tag = soup.find(string=lambda text: "products found" in str(text).lower()).parent
+        product_count = int(re.search(r"\d+", product_count_tag.get_text()).group(0))
 
         print(f"Found {page_count} pages, with {product_count} results")
 
+        # create a list of futures to get the product url pages from each
+        # search page
         product_search_tasks = [asyncio.ensure_future(search_page_product_urls(soup))]
         for page_num in range(2, page_count + 1):
             fut = search_nth_page_product_urls(session, product_name, page_num)
@@ -79,6 +87,8 @@ async def search_product_urls(session, product_name):
 
         print()
         print("Retrieving product urls")
+
+        # run all futures concurrently
         product_urls = [url for urls in await tqdm.gather(*product_search_tasks) 
                         for url in urls]
 
@@ -87,10 +97,14 @@ async def search_product_urls(session, product_name):
         return product_urls
 
 async def get_product(session, product):
+    # get the product's page
     async with session.get(product.url) as response:
+        
+        # find the table of spec data
         soup = BeautifulSoup(await response.text(), "html.parser")
         specs_table = soup.find("div", {"class": "specs-table"})
 
+        # read the key/val pairs, add them to the product
         specs = {}
         if specs_table:
             elements = specs_table.find_all("div", {"class": "border-bottom"})
@@ -101,34 +115,37 @@ async def get_product(session, product):
 # given a product name, asynchronously get specs for all products associated
 # with that name
 async def get_products(session, product_name):
+    # get the product urls from the search pages
     product_urls = await search_product_urls(session, product_name)
 
+    # create a list of futures to get the product specs from each url
     product_spec_tasks = []
-
     for name, url in product_urls:
-        product = Product(name, url)
-        fut = get_product(session, product)
+        fut = get_product(session, Product(name, url))
         product_spec_tasks.append(asyncio.ensure_future(fut))
 
     print()
     print("Retrieving product specs")
+
+    # run all futures concurrently
     products = list(await tqdm.gather(*product_spec_tasks))
 
     return products
 
-def get_spec_names(products):
-    return 
 def create_table(db, products):
+    # calculate all specs that appear in at least one product
     spec_names = list(functools.reduce(
             lambda a,b: a.union(b), 
             [set(prod.all_specs().keys()) for prod in products]))
 
+    # create a table to hold all the specs
     create_stmt = "CREATE TABLE {}({});".format(
         TABLE_NAME,
         ",".join(["Name"] + spec_names)
     )
     db.execute(create_stmt)
 
+    # add each product as a row into the table
     for product in products:
         all_specs = product.all_specs()
         keys = ["Name"] + list(all_specs.keys())
@@ -141,12 +158,15 @@ def create_table(db, products):
         db.execute(insert_stmt, vals)
 
 def interactive(products):
+    # get specs
     spec_names = functools.reduce(
             lambda a,b: a.union(b), 
             [set(prod.specs.keys()) for prod in products])
 
     print()
     print("Retrieved specs: ")
+
+    # print all specs
     for x in spec_names:
         print(" - " + x)
 
@@ -155,6 +175,8 @@ def interactive(products):
 
     print()
     print("Use SQL commands in the table:", TABLE_NAME);
+
+    # run SQL statements
     while True:
         print()
         try:
