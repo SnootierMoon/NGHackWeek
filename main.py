@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from tqdm.asyncio import tqdm_asyncio
 import aiohttp, asyncio
 import functools
@@ -13,8 +13,9 @@ class Product:
         self.url = url
         self.specs = specs
 
-    def fix_spec_name(name):
-        return re.sub("[^a-zA-Z_0-9]+", "_", name).strip("_").lower()
+    def fix_spec_name(spec):
+        raw_name = ''.join([x for x in spec if isinstance(x, NavigableString)])
+        return re.sub("[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
 
 # get product urls from the html of a search page
 async def search_page_product_urls(soup):
@@ -78,7 +79,8 @@ async def get_product(session, name, url):
         if specs_table:
             elements = specs_table.find_all("div", {"class": "border-bottom"})
             for i in range(0, len(elements), 2):
-                key = Product.fix_spec_name(elements[i].get_text())
+                key = Product.fix_spec_name(elements[i])
+                if key == "lifetime1": print(url)
                 value = elements[i + 1].get_text()
                 specs[key] = value
 
