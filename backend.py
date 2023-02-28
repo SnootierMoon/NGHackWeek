@@ -1,29 +1,19 @@
 from bs4 import BeautifulSoup, NavigableString
-from tqdm.asyncio import tqdm_asyncio as tqdm
 import aiohttp, asyncio, functools, re, sqlite3
 
 BASE_URL = "https://satsearch.co"
 TABLE_NAME = "product_specs"
 
-FLOAT_REGEXP = r"[-+]?[0-9]+(\.[0-9])?([eE][-+]?[0-9]+)?"
-
 # stores information about a product
 class Product:
-    def __init__(self, name, url):
+    def __init__(self, name, url, specs = {}):
         self.name = name
         self.url = url
-        self.specs = {}
-        self.int_specs = {}
+        self.specs = specs
 
     def add_spec(self, key, val):
         fix_key = Product.fix_spec_name(key)
         self.specs[fix_key] = val
-        match = re.search(FLOAT_REGEXP, val)
-        if match:
-            self.int_specs["Num_" + fix_key] = float(match.group(0))
-
-    def all_specs(self):
-        return dict(self.specs, **self.int_specs)
 
     # make the name work as a SQL field
     def fix_spec_name(spec_tag):
@@ -32,6 +22,7 @@ class Product:
         raw_name = "".join([x for x in spec_tag if isinstance(x, NavigableString)])
         # remove non-alphanumeric characters, replace with underscores
         return re.sub(r"[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
+
 
 # search through a search page for product urls
 async def search_page_product_urls(soup):
@@ -89,7 +80,7 @@ async def search_product_urls(session, product_name):
         print("Retrieving product urls")
 
         # run all futures concurrently
-        product_urls = [url for urls in await tqdm.gather(*product_search_tasks) 
+        product_urls = [url for urls in await asyncio.gather(*product_search_tasks) 
                         for url in urls]
 
         print("Retrieved {count} product urls".format(count=len(product_urls)))
@@ -128,16 +119,11 @@ async def get_products(session, product_name):
     print("Retrieving product specs")
 
     # run all futures concurrently
-    products = list(await tqdm.gather(*product_spec_tasks))
+    products = list(await asyncio.gather(*product_spec_tasks))
 
     return products
 
-def create_table(db, products):
-    # calculate all specs that appear in at least one product
-    spec_names = list(functools.reduce(
-            lambda a,b: a.union(b), 
-            [set(prod.all_specs().keys()) for prod in products]))
-
+def create_table(db, products, spec_names):
     # create a table to hold all the specs
     create_stmt = "CREATE TABLE {}({});".format(
         TABLE_NAME,
@@ -147,9 +133,8 @@ def create_table(db, products):
 
     # add each product as a row into the table
     for product in products:
-        all_specs = product.all_specs()
-        keys = ["Name"] + list(all_specs.keys())
-        vals = [product.name] + list(all_specs.values())
+        keys = ["Name"] + list(product.specs.keys())
+        vals = [product.name] + list(product.specs.values())
         insert_stmt = "INSERT INTO {} ({}) VALUES({});".format(
                 TABLE_NAME,
                 ",".join(keys),
@@ -158,7 +143,7 @@ def create_table(db, products):
         db.execute(insert_stmt, vals)
 
 def interactive(products):
-    # get specs
+    # get specs that are used by at least one product
     spec_names = functools.reduce(
             lambda a,b: a.union(b), 
             [set(prod.specs.keys()) for prod in products])
@@ -171,7 +156,7 @@ def interactive(products):
         print(" - " + x)
 
     db = sqlite3.connect(":memory:")
-    create_table(db, products)
+    create_table(db, products, list(spec_names))
 
     print()
     print("Use SQL commands in the table:", TABLE_NAME);

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Search Results</title>
+
+  <link href="static/css/bootstrap.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="s128">
+      <img src = "static/NGSearchLogo.jpg" alt = "test"/>
+      <form action = "/search" method="get">
+        <div class="inner-form">
+          <div class="row">
+            <div class="input-field second">
+              <input type="search" placeholder="Product Name" name="query"/>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="container">
+      <div class="row">
+          <div class="col-md-3">
+              <table class="table table-responsive table-sm">
+                <thead class="thead-primary">
+                  <tr>
+                    <th>Specs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if specs %}
+                    {% for spec in specs %}
+                      <tr>
+                        <td><input type="checkbox"><label for="spec">{{spec}}</label></td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                      <p>no results found</p>
+                  {% endif %}                 
+                </tbody>
+              </table>
+          </div>
+          <div class="col-md-9">
+              <table class="table table-responsive">
+                <thead class="thead-primary">
+                  <tr>
+                    <th style="width: 75%">Product</th>
+                    <th style="width: 25%">Specs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if products %}
+                  {% for prod in products %}
+                  <tr>
+                    <td><a href={{prod.url}}>{{prod.name}}</a></td>
+                    <td>random</td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <p>No results found.</p>
+                  {% endif %}
+                </tbody>
+              </table>
+          </div>
+        </div>
+    </div>
+    <!--<div class="container">
+      
+      <div class="row">
+        <div class="col">sdsdsdfkljsdlfkjsdlkfjsdlkfjf</div>
+        <div class="col-10">sdf
+          <div class="table-wrap">
+            <table class="table">
+              <thead class="thead-primary">
+                <tr>
+                  <th>Product</th>
+                  <th>Specs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if products %}
+                {% for prod in products %}
+                <tr>
+                  <td><a href={{prod.url}}>{{prod.name}}</a></td>
+                  <td>random</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <p>No results found.</p>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>-->
+
+</body>
+
+</html>
