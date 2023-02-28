@@ -40,7 +40,7 @@ async def ep_search():
 
     # create the sql table to hold the specs
     create_stmt = "CREATE TABLE main_tbl({});".format(
-        ",".join(["Name", "Url"] + common_specs)
+        ",".join(["Name", "Url"] + specs)
     )
 
     # insert the data into the table for each product
