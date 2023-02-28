@@ -4,41 +4,46 @@ from collections import Counter
 app = quart.Quart(__name__)
 db = sqlite3.connect(":memory:")
 
+# create aiohttp session so our web server can perform http requests
 @app.before_serving
 async def before_serving():
     app.client = aiohttp.ClientSession()
 
+# close http session when done
 @app.after_serving
 async def after_serving():
     await app.client.close()
 
+# main page just renders the search menu
 @app.route("/")
 async def ep_home():
     return await quart.render_template("home.html")
 
-# create a new database
+# search page requires query parameters that specify the product that the user
+# searched for
 @app.route("/search")
 async def ep_search():
+    # query is the name of the product that the user searched
     query = quart.request.args.get("query")
 
+    # get product data from backend
     products = await backend.get_products(app.client, query)
 
+    # get all specs in order of decreasing frequency
     spec_counter = Counter()
     for product in products:
         for spec in product.specs.keys():
             spec_counter[spec] += 1
+    specs = [spec for spec, _ in spec_counter.most_common()]
 
-    specs = list(functools.reduce(
-            lambda a,b: a.union(b), 
-            [set(product.specs.keys()) for product in products]))
+    cur = db.cursor()
 
-    common_specs = [spec for spec, _ in spec_counter.most_common()]
-
+    # create the sql table to hold the specs
     create_stmt = "CREATE TABLE main_tbl({});".format(
         ",".join(["Name", "Url"] + common_specs)
     )
 
-    cur = db.cursor()
+    # insert the data into the table for each product
     cur.execute("DROP TABLE IF EXISTS main_tbl;")
     cur.execute(create_stmt)
     for product in products:
@@ -54,17 +59,20 @@ async def ep_search():
 
     product_names = [{"name": product.name, "url": product.url} 
                      for product in products]
-
     return await quart.render_template("search.html",
         query=query,
-        specs=common_specs,
+        specs=specs,
         products=product_names)
 
 
+# json endpoint to get products that contain any specs from a given set of
+# specs
 @app.route("/filter")
 async def ep_filter():
     arg = quart.request.args
     
+    # get specs from ajax data, and then select Name,Url,[specs]... from the
+    # table
     if arg:
         #specs = arg.split(",")
         specs = []
@@ -84,6 +92,7 @@ async def ep_filter():
 
     products = []
     for row in cur.execute(select_stmt).fetchall():
+        # first column is name, second is url, remaining is specs
         products.append({
             "name": row[0],
             "url": row[1],
