@@ -58,10 +58,14 @@ async def ep_search():
 
 @app.route("/filter")
 async def ep_filter():
-    arg = quart.request.args.get("specs")
-
+    arg = quart.request.args
+    
     if arg:
-        specs = arg.split(",")
+        #specs = arg.split(",")
+        specs = []
+        for item in arg:
+            specs.append(item)
+        print(specs)
         select_stmt = "SELECT Name,Url," + ",".join(specs) + " FROM main_tbl WHERE " + " AND ".join(specs) + ";"
 
         # TODO: replace with placeholders to avoid injection

@@ -9,6 +9,29 @@
 
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="static/css/search.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      $('input[type="checkbox"]').click(function() {
+        console.log("checked");
+        const specs = {};
+        $('input[type="checkbox"]').each(function() {
+          if ($(this).is(':checked')) {
+            specs[$(this).attr('id')] = 1;
+          }
+        });
+        console.log(specs)
+        $.ajax({
+          url: '/filter',
+          type: 'GET',
+          data: specs,
+          success: function(data) {
+            console.log(data)
+          }
+        })
+      });
+    });
+  </script>
 
 </head>
 <body style="background-color: #ebfaff">
@@ -28,18 +51,17 @@
 
     <div class="table-container">
       <!-- SPECS TABLE -->
-      <form action = "/filter" class="left-table" method="get">
         <table class="left-table">
           <thead>
             <tr>
-              <th>Select Specs</th>
+              <th><input type="submit" value="Submit"></th>
             </tr>
           </thead>
           <tbody>
             {% if specs %}
             {% for spec in specs %}
               <tr>
-                <td><input type="checkbox" name="specs" value="{{ spec }}"></td>
+                <td><input type="checkbox" name="specs" value="{{ spec }}" id="{{ spec }}"></td>
                 <td>{{ spec|replace('_', ' ') }}</td>
               </tr>
             {% endfor %}
@@ -48,7 +70,6 @@
           {% endif %}
           </tbody>
         </table>
-      </form>
       <!-- PRODUCT TABLE -->
       <table>
         <thead>
@@ -73,9 +94,9 @@
 
     </div>
   </div>
+  <div id="content"></div>
 
     <!-- Bootstrap JS (optional) -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
   </body>
