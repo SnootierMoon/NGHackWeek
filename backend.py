@@ -1,28 +1,45 @@
 from bs4 import BeautifulSoup, NavigableString
+from tqdm.asyncio import tqdm_asyncio
 import aiohttp, asyncio, functools, re, sqlite3
 
 BASE_URL = "https://satsearch.co"
 TABLE_NAME = "product_specs"
+
+FLOAT_REGEXP = r"[-+]?[0-9]+(\.[0-9])?([eE][-+]?[0-9]+)?"
+
+gather = asyncio.gather
 
 # stores information about a product
 class Product:
     def __init__(self, name, url, specs = {}):
         self.name = name
         self.url = url
-        self.specs = specs
+        self.specs = {}
+        self.int_specs = {}
+        for key, val in specs.items():
+            self.add_spec(key, val)
 
+    # add two fields
     def add_spec(self, key, val):
         fix_key = Product.fix_spec_name(key)
         self.specs[fix_key] = val
+        match = re.search(FLOAT_REGEXP, val)
+        if match:
+            self.int_specs["Num_" + fix_key] = float(match.group(0))
+
+    def all_specs(self):
+        return dict(self.specs, **self.int_specs)
 
     # make the name work as a SQL field
-    def fix_spec_name(spec_tag):
+    def fix_spec_name(spec):
+        if isinstance(spec, str):
+            raw_name = spec
         # get the string parts of the element to filter out unwanted formats,
         # such as superscripts
-        raw_name = "".join([x for x in spec_tag if isinstance(x, NavigableString)])
+        else:
+            raw_name = "".join([x for x in spec if isinstance(x, NavigableString)])
         # remove non-alphanumeric characters, replace with underscores
         return re.sub(r"[^a-zA-Z_0-9]+", "_", raw_name).strip("_").lower()
-
 
 # search through a search page for product urls
 async def search_page_product_urls(soup):
@@ -80,7 +97,7 @@ async def search_product_urls(session, product_name):
         print("Retrieving product urls")
 
         # run all futures concurrently
-        product_urls = [url for urls in await asyncio.gather(*product_search_tasks) 
+        product_urls = [url for urls in await gather(*product_search_tasks) 
                         for url in urls]
 
         print("Retrieved {count} product urls".format(count=len(product_urls)))
@@ -119,11 +136,16 @@ async def get_products(session, product_name):
     print("Retrieving product specs")
 
     # run all futures concurrently
-    products = list(await asyncio.gather(*product_spec_tasks))
+    products = list(await gather(*product_spec_tasks))
 
     return products
 
-def create_table(db, products, spec_names):
+def create_table(db, products):
+    # calculate all specs that appear in at least one product
+    spec_names = [x + " INTEGER" if "Num" in x else x for x in functools.reduce(
+            lambda a,b: a.union(b), 
+            [set(prod.all_specs().keys()) for prod in products])]
+
     # create a table to hold all the specs
     create_stmt = "CREATE TABLE {}({});".format(
         TABLE_NAME,
@@ -133,8 +155,9 @@ def create_table(db, products, spec_names):
 
     # add each product as a row into the table
     for product in products:
-        keys = ["Name"] + list(product.specs.keys())
-        vals = [product.name] + list(product.specs.values())
+        all_specs = product.all_specs()
+        keys = ["Name"] + list(all_specs.keys())
+        vals = [product.name] + list(all_specs.values())
         insert_stmt = "INSERT INTO {} ({}) VALUES({});".format(
                 TABLE_NAME,
                 ",".join(keys),
@@ -143,7 +166,7 @@ def create_table(db, products, spec_names):
         db.execute(insert_stmt, vals)
 
 def interactive(products):
-    # get specs that are used by at least one product
+    # get specs
     spec_names = functools.reduce(
             lambda a,b: a.union(b), 
             [set(prod.specs.keys()) for prod in products])
@@ -156,7 +179,7 @@ def interactive(products):
         print(" - " + x)
 
     db = sqlite3.connect(":memory:")
-    create_table(db, products, list(spec_names))
+    create_table(db, products)
 
     print()
     print("Use SQL commands in the table:", TABLE_NAME);
@@ -181,5 +204,6 @@ async def run(product_name):
         interactive(products)
 
 if __name__ == "__main__":
+    gather = tqdm_asyncio.gather
     product_name = input("Product Name: ")
     asyncio.run(run(product_name))

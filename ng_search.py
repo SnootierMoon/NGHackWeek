@@ -1,4 +1,5 @@
 import aiohttp, backend, functools, quart, sqlite3, test_products
+from collections import Counter
 
 app = quart.Quart(__name__)
 db = sqlite3.connect(":memory:")
@@ -20,16 +21,21 @@ async def ep_home():
 async def ep_search():
     query = quart.request.args.get("query")
 
-    print(query)
+    products = await backend.get_products(app.client, query)
 
-    products = test_products.products #await backend.get_products(app.client, query)
+    spec_counter = Counter()
+    for product in products:
+        for spec in product.specs.keys():
+            spec_counter[spec] += 1
 
     specs = list(functools.reduce(
             lambda a,b: a.union(b), 
             [set(product.specs.keys()) for product in products]))
 
+    common_specs = [spec for spec, _ in spec_counter.most_common()]
+
     create_stmt = "CREATE TABLE main_tbl({});".format(
-        ",".join(["Name", "Url"] + specs)
+        ",".join(["Name", "Url"] + common_specs)
     )
 
     cur = db.cursor()
@@ -42,7 +48,6 @@ async def ep_search():
                 ",".join(keys),
                 ",".join(["?" for _ in vals])
         )
-        print(insert_stmt, vals)
         cur.execute(insert_stmt, vals)
 
     db.commit()
@@ -52,7 +57,7 @@ async def ep_search():
 
     return await quart.render_template("search.html",
         query=query,
-        specs=specs,
+        specs=common_specs,
         products=product_names)
 
 
@@ -65,8 +70,7 @@ async def ep_filter():
         specs = []
         for item in arg:
             specs.append(item)
-        print(specs)
-        select_stmt = "SELECT Name,Url," + ",".join(specs) + " FROM main_tbl WHERE " + " AND ".join(specs) + ";"
+        select_stmt = "SELECT Name,Url," + ",".join(specs) + " FROM main_tbl WHERE " + " OR ".join(specs) + ";"
 
         # TODO: replace with placeholders to avoid injection
         #       the following code does not work
