@@ -24,20 +24,19 @@
           type: 'GET',
           data: selectedSpecs,
           success: function(data) {
-            //console.log(data.products[0])
-            for (let i=0; i < data.products.length; i++) {
-              product = data.products[i];
-              console.log(product)
-              let textToAdd = ""
+            innerHTML = "";
+            for (product of data.products) {
+              innerHTML += '<tr><td>';
+              innerHTML += `<a href="${product.url}">${product.name}</a></td><td>`;
               for (let i = 0; i < data.specs.length; i++) {
-                if(i != 0) { textToAdd += "<br>"}
-                textToAdd += "<b>" + data.specs[i] + "</b>" + ": " + product.specs[i];
+                if (product.specs[i] != null) {
+                  innerHTML += `<b>${data.specs[i]}</b>: ${product.specs[i]}<br>`;
+                }
               }
-              console.log(textToAdd)
-              let id = "." + product.url.substring(30);
-              console.log(id)
-              $(id).html(textToAdd);
+              innerHTML.slice(0, -4);
+              innerHTML += "</td></tr>";
             }
+            $("#product-table").html(innerHTML);
           }
         })
       });
@@ -89,7 +88,7 @@
             <th>Specs</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="product-table">
             {% if products %}
             {% for prod in products %}
             <tr>
