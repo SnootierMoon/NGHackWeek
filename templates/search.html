@@ -1,6 +1,4 @@
-<!--TODO: send a list of specs chosen back to quart
-    TODO: use js? to change the table for specs chosen, or just maybe rerender page
-    TODO: sql filter search bar
+<!--TODO: sql filter search bar
     TODO: would be nice if specs were in order of how common they were-->
 <!DOCTYPE html>
 <html>
@@ -9,6 +7,41 @@
 
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="static/css/search.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      $('input[type="checkbox"]').click(function() {
+        console.log("checked");
+        const selectedSpecs = {};
+        $('input[type="checkbox"]').each(function() {
+          if ($(this).is(':checked')) {
+            selectedSpecs[$(this).attr('id')] = 1;
+          }
+        });
+        console.log(selectedSpecs)
+        $.ajax({
+          url: '/filter',
+          type: 'GET',
+          data: selectedSpecs,
+          success: function(data) {
+            innerHTML = "";
+            for (product of data.products) {
+              innerHTML += '<tr><td>';
+              innerHTML += `<a href="${product.url}">${product.name}</a></td><td>`;
+              for (let i = 0; i < data.specs.length; i++) {
+                if (product.specs[i] != null) {
+                  innerHTML += `<b>${data.specs[i]}</b>: ${product.specs[i]}<br>`;
+                }
+              }
+              innerHTML.slice(0, -4);
+              innerHTML += "</td></tr>";
+            }
+            $("#product-table").html(innerHTML);
+          }
+        })
+      });
+    });
+  </script>
 
 </head>
 <body style="background-color: #ebfaff">
@@ -28,7 +61,6 @@
 
     <div class="table-container">
       <!-- SPECS TABLE -->
-      <form action = "/filter" class="left-table" method="get">
         <table class="left-table">
           <thead>
             <tr>
@@ -39,7 +71,7 @@
             {% if specs %}
             {% for spec in specs %}
               <tr>
-                <td><input type="checkbox" name="specs" value="{{ spec }}"></td>
+                <td><input type="checkbox" name="specs" value="{{ spec }}" id="{{ spec }}"></td>
                 <td>{{ spec|replace('_', ' ') }}</td>
               </tr>
             {% endfor %}
@@ -48,7 +80,6 @@
           {% endif %}
           </tbody>
         </table>
-      </form>
       <!-- PRODUCT TABLE -->
       <table>
         <thead>
@@ -57,13 +88,13 @@
             <th>Specs</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="product-table">
             {% if products %}
             {% for prod in products %}
             <tr>
               <td><a href={{prod.url}}>{{prod.name}}</a></td>
-              <td>None Chosen</td>
-            </tr>
+              <td class={{prod.url[30:]}}></td>
+            </tr> 
             {% endfor %}
             {% else %}
             <p>No results found.</p>
@@ -73,9 +104,9 @@
 
     </div>
   </div>
+  <div id="content"></div>
 
     <!-- Bootstrap JS (optional) -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
   </body>
