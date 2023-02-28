@@ -1,6 +1,4 @@
-<!--TODO: send a list of specs chosen back to quart
-    TODO: use js? to change the table for specs chosen, or just maybe rerender page
-    TODO: sql filter search bar
+<!--TODO: sql filter search bar
     TODO: would be nice if specs were in order of how common they were-->
 <!DOCTYPE html>
 <html>
@@ -14,19 +12,32 @@
     $(document).ready(function() {
       $('input[type="checkbox"]').click(function() {
         console.log("checked");
-        const specs = {};
+        const selectedSpecs = {};
         $('input[type="checkbox"]').each(function() {
           if ($(this).is(':checked')) {
-            specs[$(this).attr('id')] = 1;
+            selectedSpecs[$(this).attr('id')] = 1;
           }
         });
-        console.log(specs)
+        console.log(selectedSpecs)
         $.ajax({
           url: '/filter',
           type: 'GET',
-          data: specs,
+          data: selectedSpecs,
           success: function(data) {
-            console.log(data)
+            //console.log(data.products[0])
+            for (let i=0; i < data.products.length; i++) {
+              product = data.products[i];
+              console.log(product)
+              let textToAdd = ""
+              for (let i = 0; i < data.specs.length; i++) {
+                if(i != 0) { textToAdd += "<br>"}
+                textToAdd += "<b>" + data.specs[i] + "</b>" + ": " + product.specs[i];
+              }
+              console.log(textToAdd)
+              let id = "." + product.url.substring(30);
+              console.log(id)
+              $(id).html(textToAdd);
+            }
           }
         })
       });
@@ -83,8 +94,8 @@
             {% for prod in products %}
             <tr>
               <td><a href={{prod.url}}>{{prod.name}}</a></td>
-              <td>None Chosen</td>
-            </tr>
+              <td class={{prod.url[30:]}}>None Chosen</td>
+            </tr> 
             {% endfor %}
             {% else %}
             <p>No results found.</p>
