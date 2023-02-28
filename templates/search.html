@@ -65,7 +65,7 @@
         <table class="left-table">
           <thead>
             <tr>
-              <th><input type="submit" value="Submit"></th>
+              <th>Select Specs</th>
             </tr>
           </thead>
           <tbody>
@@ -94,7 +94,7 @@
             {% for prod in products %}
             <tr>
               <td><a href={{prod.url}}>{{prod.name}}</a></td>
-              <td class={{prod.url[30:]}}>None Chosen</td>
+              <td class={{prod.url[30:]}}></td>
             </tr> 
             {% endfor %}
             {% else %}
