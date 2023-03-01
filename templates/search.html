@@ -3,10 +3,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>{{ query[0]|upper }}{{ query[1:] }} Search Results</title>
+  <title>{{ query }} - NGSearch</title>
 
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="static/css/search.css">
+  <link rel="icon" href="static/NGSearchLogo.jpg">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
     $(document).ready(function() {
@@ -44,7 +45,7 @@
   </script>
 
 </head>
-<body style="background-color: #ebfaff">
+<body style="background-color: #d8f4fe">
   <div class="container my-5">
 
     <form action="/search" method="get">
