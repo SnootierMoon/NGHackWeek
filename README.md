@@ -22,8 +22,18 @@ $ pip3 install -r requirements.txt
 Then you will be able to run the program:
 
 ```sh
-$ python3 main.py
+$ python3 ng_search.py
 ```
+
+This program will run a Quart app on a local port, where you can search for the space product you are looking for and view a table format of products and specs.
+
+
+
+If you'd like to only view the backend, you can run the program:
+```sh
+$ python3 backend.py
+```
+
 
 The program will first prompt you for the product you are searching for. Type
 in a product (e.g. `reaction wheel`), and then press enter. The program will
